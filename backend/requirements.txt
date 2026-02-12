@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+asyncpg
+python-dotenv
+argon2-cffi
