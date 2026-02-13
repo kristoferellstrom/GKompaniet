@@ -22,7 +22,7 @@ body {
   min-height: 100vh;
   font-family: "Sora", "Avenir Next", sans-serif;
   color: var(--ink);
-  background: url("/images/gymkompaniet_back.webp") center/cover no-repeat fixed;
+  background: var(--bg-image) center/cover no-repeat fixed;
   background-color: var(--bg);
   display: flex;
   flex-direction: column;
@@ -461,17 +461,17 @@ button:disabled {
   width: 100%;
   aspect-ratio: 16 / 9;
   border-radius: 18px;
-  background: url("/images/Search.webp") center/cover no-repeat;
+  background: var(--search-image) center/cover no-repeat;
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 
 .search-slot.is-lost {
-  background-image: url("/images/Lost.webp");
+  background-image: var(--lost-image);
 }
 
 .search-slot.is-won {
-  background-image: url("/images/Won.webp");
+  background-image: var(--won-image);
 }
 
 .won-slot {
@@ -479,13 +479,13 @@ button:disabled {
   width: 100%;
   aspect-ratio: 16 / 9;
   border-radius: 18px;
-  background: url("/images/Won.webp") center/cover no-repeat;
+  background: var(--won-image) center/cover no-repeat;
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 
 .won-slot.is-sunglasses {
-  background-image: url("/images/sunglasses.png");
+  background-image: var(--sunglasses-image);
 }
 
 .stamp {

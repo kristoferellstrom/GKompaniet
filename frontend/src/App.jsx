@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const apiBase = import.meta.env.VITE_API_BASE || "http://localhost:8000";
+const assetBase = import.meta.env.BASE_URL || "/";
+const assetUrl = (path) => `${assetBase}${path.replace(/^\/+/, "")}`;
 const endpoints = {
   status: `${apiBase}/api/status`,
   enter: `${apiBase}/api/enter-code`,
@@ -79,6 +81,15 @@ export default function App() {
       document.body.classList.remove("closed-mobile-cover");
     };
   }, [view]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--bg-image", `url("${assetUrl("images/gymkompaniet_back.webp")}")`);
+    root.style.setProperty("--search-image", `url("${assetUrl("images/Search.webp")}")`);
+    root.style.setProperty("--lost-image", `url("${assetUrl("images/Lost.webp")}")`);
+    root.style.setProperty("--won-image", `url("${assetUrl("images/Won.webp")}")`);
+    root.style.setProperty("--sunglasses-image", `url("${assetUrl("images/sunglasses.png")}")`);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -311,8 +322,8 @@ export default function App() {
           <span />
         </div>
       ) : null}
-      <audio ref={winAudioRef} src="/audio/won.mp3" preload="auto" />
-      <audio ref={failAudioRef} src="/audio/fail.mp3" preload="auto" />
+      <audio ref={winAudioRef} src={assetUrl("audio/won.mp3")} preload="auto" />
+      <audio ref={failAudioRef} src={assetUrl("audio/fail.mp3")} preload="auto" />
       <main className="page">
         {view !== "closed" ? (
           <div className="side-word">
@@ -439,7 +450,7 @@ export default function App() {
           <div className={`view ${view === "success" ? "is-active" : ""}`} data-view="success">
             <h2>Tack! Vi hör av oss.</h2>
             <a className="logo-link" href="https://gymkompaniet.se" target="_blank" rel="noreferrer">
-              <img className="logo-image" src="/images/gymkompaniet_1.webp" alt="Gymkompaniet" />
+              <img className="logo-image" src={assetUrl("images/gymkompaniet_1.webp")} alt="Gymkompaniet" />
             </a>
           </div>
         </section>
