@@ -212,7 +212,6 @@ async def enter_code(body: EnterCodeBody, request: Request):
 
 @app.post("/api/submit-contact")
 async def submit_contact(body: SubmitContactBody, request: Request):
-    actor_hash = get_actor_hash(request)
     claimToken = (body.claimToken or "").strip()
     if not claimToken or not body.name or not body.email:
         return JSONResponse({"ok": False, "reason": "invalid_payload"}, status_code=400)
@@ -231,16 +230,16 @@ async def submit_contact(body: SubmitContactBody, request: Request):
                 await tr.rollback()
                 return JSONResponse({"ok": False, "reason": "unauthorized"}, status_code=401)
 
-            if token["actor_hash"] != actor_hash or token["used_at"] or token["expires_at"] < datetime.now(timezone.utc):
+            if token["used_at"] or token["expires_at"] < datetime.now(timezone.utc):
                 await tr.rollback()
                 return JSONResponse({"ok": False, "reason": "unauthorized"}, status_code=401)
 
             await conn.execute(
                 "INSERT INTO winner_contacts(actor_hash, name, email, phone) VALUES($1,$2,$3,$4)",
-                actor_hash,
-                body.name,
-                body.email,
-                body.phone,
+                token["actor_hash"],
+                body.name.strip(),
+                body.email.strip(),
+                (body.phone or "").strip() or None,
             )
 
             await conn.execute("UPDATE winner_claim_tokens SET used_at=NOW() WHERE token_hash=$1", token_hash)
