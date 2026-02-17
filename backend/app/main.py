@@ -1,8 +1,11 @@
 import os
+import asyncio
 import hashlib
 import re
 import secrets
+import smtplib
 from datetime import datetime, timezone, timedelta
+from email.message import EmailMessage
 
 import asyncpg
 from fastapi import FastAPI, Request
@@ -27,6 +30,14 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true" if not TEST_MODE else "false")
 COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
 DEVICE_COOKIE_NAME = "device_id"
 DEVICE_COOKIE_MAX_AGE_DAYS = int(os.getenv("DEVICE_COOKIE_MAX_AGE_DAYS", "365"))
+
+SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_FROM = os.getenv("SMTP_FROM") or SMTP_USER
+SMTP_TO = os.getenv("SMTP_TO")
+SMTP_TLS = os.getenv("SMTP_TLS", "true").lower() == "true"
 
 ph = PasswordHasher()
 app = FastAPI()
@@ -100,6 +111,26 @@ async def ensure_device_cookie(request: Request, call_next):
             path="/",
         )
     return response
+
+
+def send_email_sync(subject: str, body: str) -> None:
+    if not SMTP_HOST or not SMTP_TO or not SMTP_FROM:
+        raise RuntimeError("SMTP is not configured")
+
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = SMTP_FROM
+    message["To"] = SMTP_TO
+    message.set_content(body)
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+        server.ehlo()
+        if SMTP_TLS:
+            server.starttls()
+            server.ehlo()
+        if SMTP_USER and SMTP_PASSWORD:
+            server.login(SMTP_USER, SMTP_PASSWORD)
+        server.send_message(message)
 
 
 if CORS_ORIGINS:
@@ -211,7 +242,7 @@ async def enter_code(body: EnterCodeBody, request: Request):
 
 
 @app.post("/api/submit-contact")
-async def submit_contact(body: SubmitContactBody, request: Request):
+async def submit_contact(body: SubmitContactBody, _request: Request):
     claimToken = (body.claimToken or "").strip()
     if not claimToken or not body.name or not body.email:
         return JSONResponse({"ok": False, "reason": "invalid_payload"}, status_code=400)
@@ -245,7 +276,26 @@ async def submit_contact(body: SubmitContactBody, request: Request):
             await conn.execute("UPDATE winner_claim_tokens SET used_at=NOW() WHERE token_hash=$1", token_hash)
             await conn.execute("UPDATE contest_state SET contact_submitted=true WHERE id=1")
             await tr.commit()
-            return {"ok": True}
+
+            email_sent = False
+            if SMTP_HOST and SMTP_TO and SMTP_FROM:
+                subject = "Ny vinnare - Gymkompaniet"
+                lines = [
+                    "En vinnare har skickat in sina uppgifter.",
+                    "",
+                    f"Namn: {body.name.strip()}",
+                    f"E-post: {body.email.strip()}",
+                ]
+                if body.phone:
+                    lines.append(f"Telefon: {body.phone.strip()}")
+                body_text = "\n".join(lines)
+                try:
+                    await asyncio.to_thread(send_email_sync, subject, body_text)
+                    email_sent = True
+                except Exception:
+                    email_sent = False
+
+            return {"ok": True, "emailSent": email_sent}
         except Exception:
             await tr.rollback()
             return JSONResponse({"ok": False, "reason": "server_error"}, status_code=500)
