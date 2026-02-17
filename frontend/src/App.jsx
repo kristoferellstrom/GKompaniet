@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const apiBase = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 const assetBase = import.meta.env.BASE_URL || "/";
@@ -70,22 +70,15 @@ function sanitizeCode(value) {
 }
 
 export default function App() {
-  const initialClaimToken = useMemo(() => sessionStorage.getItem("claimToken") || "", []);
-  const initialWinnerSubmitted = useMemo(
-    () => sessionStorage.getItem("winnerSubmitted") === "true",
-    [],
-  );
-
-  const [view, setView] = useState(initialClaimToken ? "contact" : "code");
+  const [view, setView] = useState("code");
   const [code, setCode] = useState("");
   const [codeStatus, setCodeStatus] = useState({ message: "", type: "" });
   const [blockedUntil, setBlockedUntil] = useState(null);
   const [timerText, setTimerText] = useState("");
   const [searchVariant, setSearchVariant] = useState("search");
-  const [winnerSubmitted, setWinnerSubmitted] = useState(initialWinnerSubmitted);
   const [winImageVariant, setWinImageVariant] = useState("won");
   const [fireworksActive, setFireworksActive] = useState(false);
-  const [claimToken, setClaimToken] = useState(initialClaimToken);
+  const [claimToken, setClaimToken] = useState("");
   const [contactStatus, setContactStatus] = useState({ message: "", type: "" });
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -95,7 +88,7 @@ export default function App() {
   const winImageTimerRef = useRef(null);
   const fireworksTimerRef = useRef(null);
 
-  const isWinnerView = view === "contact" || view === "success";
+  const isWinnerView = view === "contact";
   const isBlocked = blockedUntil && blockedUntil > Date.now();
   const canSubmitCode = code.length === 4 && !isBlocked;
 
@@ -150,26 +143,11 @@ export default function App() {
         const { response, data } = await fetchJSON(endpoints.status);
         if (!active) return;
 
-        if (response.ok && data && data.closed === false) {
-          sessionStorage.removeItem("winnerSubmitted");
-          setWinnerSubmitted(false);
-        }
-
-        if (claimToken) {
-          setView("contact");
-          setCodeStatus({ message: "", type: "" });
-          return;
-        }
-
         if (!response.ok || !data) {
           throw new Error("status-failed");
         }
 
         if (data.closed) {
-          if (winnerSubmitted) {
-            setView("success");
-            return;
-          }
           setView("closed");
         } else {
           setView("code");
@@ -188,7 +166,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [claimToken]);
+  }, []);
 
   useEffect(() => {
     if (!blockedUntil) {
@@ -258,7 +236,6 @@ export default function App() {
         winAudioRef.current.play().catch(() => {});
       }
       setClaimToken(data.claimToken);
-      sessionStorage.setItem("claimToken", data.claimToken);
       setView("contact");
       setContactStatus({ message: "", type: "" });
       return;
@@ -323,22 +300,14 @@ export default function App() {
     });
 
     if (response.ok && data?.ok) {
-      setView("success");
-      setWinnerSubmitted(true);
-      sessionStorage.setItem("winnerSubmitted", "true");
-      sessionStorage.removeItem("claimToken");
       setClaimToken("");
+      setView("closed");
       return;
     }
 
     if (data?.reason === "unauthorized") {
-      sessionStorage.removeItem("claimToken");
       setClaimToken("");
-      if (winnerSubmitted) {
-        setView("success");
-      } else {
-        setView("closed");
-      }
+      setView("closed");
       return;
     }
 
@@ -486,12 +455,6 @@ export default function App() {
             </blockquote>
           </div>
 
-          <div className={`view ${view === "success" ? "is-active" : ""}`} data-view="success">
-            <h2>Tack! Vi hör av oss.</h2>
-            <a className="logo-link" href="https://gymkompaniet.se" target="_blank" rel="noreferrer">
-              <img className="logo-image" src={assetUrl("images/gymkompaniet_1.webp")} alt="Gymkompaniet" />
-            </a>
-          </div>
         </section>
       </main>
       <footer className="page-footer" aria-hidden="true">

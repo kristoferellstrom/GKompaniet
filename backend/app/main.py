@@ -183,6 +183,7 @@ async def enter_code(body: EnterCodeBody, request: Request):
         tr = conn.transaction()
         await tr.start()
         try:
+            await conn.execute("INSERT INTO contest_state(id) VALUES (1) ON CONFLICT DO NOTHING")
             state = await conn.fetchrow("SELECT winner_actor_hash FROM contest_state WHERE id=1 FOR UPDATE")
             if state and state.get("winner_actor_hash"):
                 await tr.rollback()
@@ -240,10 +241,12 @@ async def enter_code(body: EnterCodeBody, request: Request):
             raw_token = secrets.token_hex(32)
             token_hash = sha256_hex(raw_token)
 
-            await conn.execute(
+            update_result = await conn.execute(
                 "UPDATE contest_state SET winner_actor_hash=$1, winner_claimed_at=NOW() WHERE id=1",
                 actor_hash,
             )
+            if update_result != "UPDATE 1":
+                raise RuntimeError("contest_state row is missing")
 
             await conn.execute(
                 "INSERT INTO winner_claim_tokens(token_hash, actor_hash, expires_at) VALUES($1,$2,NOW()+INTERVAL '15 minutes')",
