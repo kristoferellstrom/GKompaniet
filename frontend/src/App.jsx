@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 const apiBase = import.meta.env.VITE_API_BASE || "http://localhost:8000";
+const winnerRedirectUrl = "https://gymkompaniet.se";
 const assetBase = import.meta.env.BASE_URL || "/";
 const assetUrl = (path) => `${assetBase}${path.replace(/^\/+/, "")}`;
 const DEVICE_STORAGE_KEY = "gk_device_id";
@@ -83,10 +84,12 @@ export default function App() {
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [winnerRedirecting, setWinnerRedirecting] = useState(false);
   const winAudioRef = useRef(null);
   const failAudioRef = useRef(null);
   const winImageTimerRef = useRef(null);
   const fireworksTimerRef = useRef(null);
+  const winnerRedirectTimerRef = useRef(null);
 
   const isWinnerView = view === "contact";
   const isBlocked = blockedUntil && blockedUntil > Date.now();
@@ -131,14 +134,20 @@ export default function App() {
       if (fireworksTimerRef.current) {
         clearTimeout(fireworksTimerRef.current);
       }
+      if (winnerRedirectTimerRef.current) {
+        clearTimeout(winnerRedirectTimerRef.current);
+      }
     };
   }, []);
 
   useEffect(() => {
     let active = true;
 
-    const loadStatus = async () => {
-      setCodeStatus({ message: "Kontrollerar status...", type: "" });
+    const loadStatus = async (silent = false) => {
+      if (!silent) {
+        setCodeStatus({ message: "Kontrollerar status...", type: "" });
+      }
+
       try {
         const { response, data } = await fetchJSON(endpoints.status);
         if (!active) return;
@@ -148,25 +157,36 @@ export default function App() {
         }
 
         if (data.closed) {
-          setView("closed");
-        } else {
+          // Keep winner on contact view while they submit details.
+          if (!(claimToken && view === "contact")) {
+            setView("closed");
+          }
+        } else if (view === "closed") {
           setView("code");
         }
 
-        setCodeStatus({ message: "", type: "" });
+        if (!silent) {
+          setCodeStatus({ message: "", type: "" });
+        }
       } catch {
-        if (!active) return;
-        setView("code");
-        setCodeStatus({ message: "Kunde inte nå servern. Kontrollera att backend kör.", type: "error" });
+        if (!active || silent) return;
+        if (view !== "closed") {
+          setView("code");
+          setCodeStatus({ message: "Kunde inte nå servern. Kontrollera att backend kör.", type: "error" });
+        }
       }
     };
 
     loadStatus();
+    const intervalId = window.setInterval(() => {
+      loadStatus(true);
+    }, 5000);
 
     return () => {
       active = false;
+      window.clearInterval(intervalId);
     };
-  }, []);
+  }, [claimToken, view]);
 
   useEffect(() => {
     if (!blockedUntil) {
@@ -272,7 +292,7 @@ export default function App() {
         break;
       }
       case "invalid_format":
-        setCodeStatus({ message: "Ange exakt tre siffror.", type: "error" });
+        setCodeStatus({ message: "Ange exakt fyra tecken (A-Z eller 0-9).", type: "error" });
         break;
       default:
         setCodeStatus({ message: "Något gick fel. Försök igen.", type: "error" });
@@ -300,17 +320,26 @@ export default function App() {
     });
 
     if (response.ok && data?.ok) {
+      setContactStatus({ message: "Uppgifter mottagna. Du skickas nu till gymkompaniet.se ...", type: "ok" });
+      setWinnerRedirecting(true);
       setClaimToken("");
-      setView("closed");
+      if (winnerRedirectTimerRef.current) {
+        clearTimeout(winnerRedirectTimerRef.current);
+      }
+      winnerRedirectTimerRef.current = window.setTimeout(() => {
+        window.location.assign(winnerRedirectUrl);
+      }, 2200);
       return;
     }
 
     if (data?.reason === "unauthorized") {
+      setWinnerRedirecting(false);
       setClaimToken("");
       setView("closed");
       return;
     }
 
+    setWinnerRedirecting(false);
     setContactStatus({ message: "Kunde inte skicka. Försök igen.", type: "error" });
   };
 
@@ -332,6 +361,11 @@ export default function App() {
       ) : null}
       <audio ref={winAudioRef} src={assetUrl("audio/won.mp3")} preload="auto" />
       <audio ref={failAudioRef} src={assetUrl("audio/fail.mp3")} preload="auto" />
+      {winnerRedirecting ? (
+        <div className="winner-redirect-banner" role="status" aria-live="assertive">
+          Du skickas nu till gymkompaniet.se ...
+        </div>
+      ) : null}
       <main className="page">
         {view !== "closed" ? (
           <div className="side-word">
@@ -403,6 +437,7 @@ export default function App() {
                   required
                   placeholder="För- och efternamn"
                   value={contactName}
+                  disabled={winnerRedirecting}
                   onChange={(event) => setContactName(event.target.value)}
                 />
               </label>
@@ -413,6 +448,7 @@ export default function App() {
                   required
                   placeholder="namn@example.com"
                   value={contactEmail}
+                  disabled={winnerRedirecting}
                   onChange={(event) => setContactEmail(event.target.value)}
                 />
               </label>
@@ -422,10 +458,13 @@ export default function App() {
                   type="tel"
                   placeholder="07X-XXX XX XX"
                   value={contactPhone}
+                  disabled={winnerRedirecting}
                   onChange={(event) => setContactPhone(event.target.value)}
                 />
               </label>
-              <button type="submit">Skicka</button>
+              <button type="submit" disabled={winnerRedirecting}>
+                {winnerRedirecting ? "Skickat" : "Skicka"}
+              </button>
             </form>
             <div className={`status ${contactStatus.type}`}>{contactStatus.message}</div>
             <div className={`won-slot ${winImageVariant === "sunglasses" ? "is-sunglasses" : ""}`} aria-hidden="true" />

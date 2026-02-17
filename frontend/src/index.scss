@@ -242,6 +242,24 @@ form {
   z-index: 5;
 }
 
+.winner-redirect-banner {
+  position: fixed;
+  top: 1.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  width: min(92vw, 560px);
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(228, 255, 61, 0.45);
+  background: rgba(10, 14, 13, 0.92);
+  color: var(--ink);
+  text-align: center;
+  font-family: "Space Mono", monospace;
+  letter-spacing: 0.04em;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
 .page-footer {
   width: 100%;
   margin-top: auto;
