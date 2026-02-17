@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 const apiBase = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 const winnerRedirectUrl = "https://gymkompaniet.se";
+const winnerRedirectDelayMs = 6000;
 const assetBase = import.meta.env.BASE_URL || "/";
 const assetUrl = (path) => `${assetBase}${path.replace(/^\/+/, "")}`;
 const DEVICE_STORAGE_KEY = "gk_device_id";
@@ -157,8 +158,9 @@ export default function App() {
         }
 
         if (data.closed) {
-          // Keep winner on contact view while they submit details.
-          if (!(claimToken && view === "contact")) {
+          // Keep winner on contact view while submit/redirect is in progress.
+          const winnerFlowInProgress = view === "contact" && (Boolean(claimToken) || winnerRedirecting);
+          if (!winnerFlowInProgress) {
             setView("closed");
           }
         } else if (view === "closed") {
@@ -186,7 +188,7 @@ export default function App() {
       active = false;
       window.clearInterval(intervalId);
     };
-  }, [claimToken, view]);
+  }, [claimToken, view, winnerRedirecting]);
 
   useEffect(() => {
     if (!blockedUntil) {
@@ -328,7 +330,7 @@ export default function App() {
       }
       winnerRedirectTimerRef.current = window.setTimeout(() => {
         window.location.assign(winnerRedirectUrl);
-      }, 2200);
+      }, winnerRedirectDelayMs);
       return;
     }
 
@@ -484,8 +486,6 @@ export default function App() {
                 Den som vågar förlora
                 <br />
                 har redan börjat lära sig att vinna.
-                <br />
-                Men glöm inte: i dag förlorade DU!
                 <br />
                 <br />
                 Vi ses i nästa omgång.
