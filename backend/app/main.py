@@ -30,6 +30,7 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true" if not TEST_MODE else "false")
 COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
 DEVICE_COOKIE_NAME = "device_id"
 DEVICE_COOKIE_MAX_AGE_DAYS = int(os.getenv("DEVICE_COOKIE_MAX_AGE_DAYS", "365"))
+DEVICE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 
 SMTP_HOST = os.getenv("SMTP_HOST")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
@@ -88,11 +89,27 @@ def get_actor_hash(request: Request) -> str:
     return sha256_hex(f"{ip}|{ua}|{device}|{ACTOR_PEPPER}")
 
 
+def normalize_device_id(value: str | None) -> str:
+    if not value:
+        return ""
+    value = value.strip()
+    if not DEVICE_ID_RE.fullmatch(value):
+        return ""
+    return value
+
+
 @app.middleware("http")
 async def ensure_device_cookie(request: Request, call_next):
-    device_id = request.cookies.get(DEVICE_COOKIE_NAME)
+    header_device_id = normalize_device_id(request.headers.get("x-device-id"))
+    cookie_device_id = normalize_device_id(request.cookies.get(DEVICE_COOKIE_NAME))
+
     set_cookie = False
-    if not device_id:
+    if header_device_id:
+        device_id = header_device_id
+        set_cookie = cookie_device_id != header_device_id
+    elif cookie_device_id:
+        device_id = cookie_device_id
+    else:
         device_id = secrets.token_hex(16)
         set_cookie = True
 

@@ -3,15 +3,54 @@ import { useEffect, useMemo, useRef, useState } from "react";
 const apiBase = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 const assetBase = import.meta.env.BASE_URL || "/";
 const assetUrl = (path) => `${assetBase}${path.replace(/^\/+/, "")}`;
+const DEVICE_STORAGE_KEY = "gk_device_id";
 const endpoints = {
   status: `${apiBase}/api/status`,
   enter: `${apiBase}/api/enter-code`,
   contact: `${apiBase}/api/submit-contact`,
 };
 
+function generateDeviceId() {
+  if (typeof crypto !== "undefined") {
+    if (typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID().replace(/-/g, "");
+    }
+    if (typeof crypto.getRandomValues === "function") {
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+  }
+  return `${Date.now().toString(16)}${Math.random().toString(16).slice(2, 18)}`;
+}
+
+function getStableDeviceId() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  try {
+    const existing = window.localStorage.getItem(DEVICE_STORAGE_KEY) || "";
+    if (/^[A-Za-z0-9_-]{16,128}$/.test(existing)) {
+      return existing;
+    }
+    const next = generateDeviceId();
+    window.localStorage.setItem(DEVICE_STORAGE_KEY, next);
+    return next;
+  } catch {
+    return "";
+  }
+}
+
 async function fetchJSON(url, options = {}) {
+  const deviceId = getStableDeviceId();
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  if (deviceId) {
+    headers["X-Device-Id"] = deviceId;
+  }
+
   const response = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers,
     credentials: "include",
     ...options,
   });
