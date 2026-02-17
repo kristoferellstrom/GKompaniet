@@ -1,4 +1,5 @@
 # Contest Code Site
+<!-- Repo: https://github.com/Gymkompaniet-tavling/GKompaniet -->
 
 ## Goal
 A responsive website where users enter a 3-digit code.
